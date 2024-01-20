@@ -11,8 +11,8 @@ class StreamlitOps:
         self.st = st
 
     def init_page(self) -> None:
-        self.st.set_page_config(page_title="YouTube Summarizer")
-        self.st.header("YouTube Summarizer")
+        self.st.set_page_config(page_title="GPT Playground")
+        self.st.header("GPT Playground")
         self.st.sidebar.title("Options")
         self.st.session_state.costs = []
         self.st.session_state.tokens = []
@@ -21,7 +21,9 @@ class StreamlitOps:
         return self.st.container()
 
     def selection(self) -> Optional[str]:
-        return self.st.sidebar.radio("Go to", ["YouTube Summarizer", "Ask My Content"])
+        return self.st.sidebar.radio(
+            "Go to", ["YouTube Summarizer", "GitHub Loader", "Ask My Content"]
+        )
 
     def select_model(self) -> ChatOpenAI:
         model = self.st.sidebar.radio("Choose a model:", ("GPT-3.5-turbo", "GPT-4"))
@@ -37,7 +39,7 @@ class StreamlitOps:
         return ChatOpenAI(model=self.st.session_state.model_name, temperature=0)
 
     def get_url_input(self) -> str | None:
-        url = self.st.text_input("Youtube URL: ", key="input")
+        url = self.st.text_input("URL: ", key="input")
         return url
 
     def title_ask_content(self) -> None:

@@ -8,7 +8,7 @@ from langchain.chains import RetrievalQA
 from langchain.chains.retrieval_qa.base import BaseRetrievalQA
 from langchain.chains.summarize import load_summarize_chain
 from langchain.chat_models import ChatOpenAI
-from langchain.document_loaders import YoutubeLoader
+from langchain.document_loaders import GitLoader, YoutubeLoader
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -47,6 +47,42 @@ Write a concise Japanese summary of the following transcript of Youtube Video.
 {text}
 
 ここから日本語で書いてね:
+"""
+    PROMPT = PromptTemplate(template=prompt_template, input_variables=["text"])
+    try:
+        with get_openai_callback() as cb:
+            chain = load_summarize_chain(
+                llm,
+                chain_type="map_reduce",
+                verbose=VERBOSE_MODE,
+                map_prompt=PROMPT,
+                combine_prompt=PROMPT,
+            )
+            response = chain(
+                {
+                    "input_documents": docs,
+                    # token_max を指示しないと、GPT3.5など通常の
+                    # モデルサイズに合わせた内部処理になってしまうので注意
+                    "token_max": st.session_state.max_token,
+                },
+                return_only_outputs=True,
+            )
+
+        return response["output_text"], cb.total_cost, cb.total_tokens
+
+    except Exception as e:
+        logger.info(f"An error occurred: {e}")
+        return None, None, None
+
+
+def summarize_repo(
+    llm: ChatOpenAI, docs: List[Document]
+) -> Tuple[Optional[str], Optional[float], Optional[int]]:
+    prompt_template = """
+Write a concise summary of the following codes from repository.
+
+{text}
+
 """
     PROMPT = PromptTemplate(template=prompt_template, input_variables=["text"])
     try:
@@ -276,6 +312,51 @@ def page_youtube_summarizer(stops: StreamlitOps) -> None:
     )
 
 
+def page_github_loader(stops: StreamlitOps) -> None:
+    llm = stops.select_model()
+
+    # Create containers once at the beginning to reduce redundancy.
+    container = stops.call_container()
+    response_container = stops.call_container()
+
+    with container:
+        url = stops.get_url_input()
+        branch = "main"
+        repo_path = "./repo_tmp"
+        filter_ext = ".py"
+
+        if url:
+            with stops.st.spinner("Fetching Content ..."):
+                git_loader = GitLoader(
+                    clone_url=url,
+                    branch=branch,
+                    repo_path=repo_path,
+                    file_filter=lambda file_path: file_path.endswith(filter_ext),
+                )
+            if git_loader:
+                document = git_loader.load()
+                logger.info(document)
+
+                with stops.st.spinner("Storing document ..."):
+                    build_vector_store(document)
+
+                with stops.st.spinner("ChatGPT is typing ..."):
+                    output_text, cost, token = summarize_repo(llm, document)
+
+                if output_text:
+                    with response_container:
+                        stops.display_summary(output_text, document)
+
+                        # Append costs and tokens after checking for valid output.
+                        stops.st.session_state.costs.append(cost)
+                        stops.st.session_state.tokens.append(token)
+
+    # Display costs and tokens in sidebar, ensuring they're only displayed once.
+    stops.display_costs_tokens_sidebar(
+        stops.st.session_state.costs, stops.st.session_state.tokens
+    )
+
+
 def main() -> None:
     # TODO optimize use of embedding instance, to resuse instance
     # TODO separate modules
@@ -284,6 +365,8 @@ def main() -> None:
     selection = stops.selection()
     if selection == "YouTube Summarizer":
         page_youtube_summarizer(stops)
+    elif selection == "GitHub Loader":
+        page_github_loader(stops)
     elif selection == "Ask My Content":
         page_ask_my_content(stops)
 
