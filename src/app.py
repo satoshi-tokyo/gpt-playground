@@ -14,7 +14,7 @@ from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Qdrant
 from langchain_core.documents import Document
-from modules.youtube_summarizer.streamlit_operation import StreamlitOps
+from modules.streamlit.streamlit_operation import StreamlitOps
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
