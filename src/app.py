@@ -4,11 +4,6 @@ from modules.langchain.langchain_client import LangChainClient
 from modules.qdrant.qdrant_service import QdrantService
 from modules.streamlit.streamlit_operation import StreamlitOps
 
-# LancChain params
-CHAIN_TYPE = "map_reduce"
-RETURN_SOURCE_DOCUMENTS = True
-VERBOSE_MODE = True
-
 # Setup logger for this module
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -107,7 +102,6 @@ def page_youtube_summarizer(stops: StreamlitOps, qs: QdrantService) -> None:
 
 def main() -> None:
     # TODO optimize use of embedding instance, to resuse instance
-    # TODO separate modules
     stops = StreamlitOps()
     qs = QdrantService()
 
