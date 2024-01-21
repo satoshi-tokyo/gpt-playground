@@ -19,13 +19,12 @@ class StreamlitOps:
         self.st.sidebar.title("Options")
         self.st.session_state.costs = []
         self.st.session_state.tokens = []
-        self.selection = self.init_selection()
+        self.selection = self.st.sidebar.radio(
+            "Go to", ["YouTube Summarizer", "Ask My Content"]
+        )
 
     def call_container(self) -> DeltaGenerator:
         return self.st.container()
-
-    def init_selection(self) -> Optional[str]:
-        return self.st.sidebar.radio("Go to", ["YouTube Summarizer", "Ask My Content"])
 
     def select_model(self) -> ChatOpenAI:
         model = self.st.sidebar.radio("Choose a model:", ("GPT-3.5-turbo", "GPT-4"))
