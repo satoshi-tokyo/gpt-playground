@@ -3,6 +3,7 @@ import os
 
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Qdrant
+from langchain_core.vectorstores import VectorStoreRetriever
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
@@ -80,8 +81,7 @@ class QdrantService:
             logger.error("An error occurred while loading Qdrant: %s", e)
             raise
 
-    def build_qa_retriever(self):
-        # TODO type hint retriever
+    def build_qa_retriever(self) -> VectorStoreRetriever:
         qdrant = self.load_qdrant()
 
         # Configure the retriever with predefined constants.
