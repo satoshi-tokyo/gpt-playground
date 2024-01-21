@@ -9,6 +9,9 @@ from streamlit.delta_generator import DeltaGenerator
 class StreamlitOps:
     def __init__(self):
         self.st = st
+        self.st.session_state.output_text = ""
+        self.st.session_state.cost = None
+        self.st.session_state.token = None
 
     def init_page(self) -> None:
         self.st.set_page_config(page_title="YouTube Summarizer")
