@@ -3,3 +3,4 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 local_qdrant/
+repo_tmp/
