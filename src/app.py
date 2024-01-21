@@ -1,10 +1,6 @@
 import logging
 
-from langchain.callbacks import get_openai_callback
-from langchain.chains.summarize import load_summarize_chain
-from langchain.document_loaders import YoutubeLoader
-from langchain.prompts import PromptTemplate
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from modules.langchain.langchain_client import LangChainClient
 from modules.qdrant.qdrant_service import QdrantService
 from modules.streamlit.streamlit_operation import StreamlitOps
 
@@ -24,25 +20,24 @@ logger.addHandler(stream_handler)
 
 def page_ask_my_content(stops: StreamlitOps, qs: QdrantService) -> None:
     stops.title_ask_content()
-
     llm = stops.select_model()
+    langchain_client = LangChainClient(
+        stops.st.session_state.model_name, stops.st.session_state.max_token
+    )
+
     container = stops.call_container()
     with container:
         query = stops.query()
 
         if query:  # Only build QA model and ask if there is a query
-            if "qa" not in stops.st.session_state:
-                stops.st.session_state.qa = qs.build_qa_model(llm)
+            retriever = qs.build_qa_retriever()
+            langchain_client.build_qa_model(retriever, llm)
 
-            qa = stops.st.session_state.qa
-            if qa:
+            if langchain_client.qa_model:
                 with stops.st.spinner("ChatGPT is typing ..."):
-                    with get_openai_callback() as cb:
-                        # query / result / source_documents
-                        answer = qa(query)
-
-                    stops.st.session_state.cost = cb.total_cost
-                    stops.st.session_state.token = cb.total_tokens
+                    answer, total_cost, total_tokens = langchain_client.qa(query)
+                    stops.st.session_state.cost = total_cost
+                    stops.st.session_state.token = total_tokens
 
                 stops.st.session_state.costs.append(stops.st.session_state.cost)
                 stops.st.session_state.tokens.append(stops.st.session_state.token)
@@ -58,7 +53,9 @@ def page_ask_my_content(stops: StreamlitOps, qs: QdrantService) -> None:
 
 def page_youtube_summarizer(stops: StreamlitOps, qs: QdrantService) -> None:
     llm = stops.select_model()
-
+    langchain_client = LangChainClient(
+        stops.st.session_state.model_name, stops.st.session_state.max_token
+    )
     # Create containers once at the beginning to reduce redundancy.
     container = stops.call_container()
     response_container = stops.call_container()
@@ -68,55 +65,25 @@ def page_youtube_summarizer(stops: StreamlitOps, qs: QdrantService) -> None:
 
         if url:
             with stops.st.spinner("Fetching Content ..."):
-                loader = YoutubeLoader.from_youtube_url(
-                    url,
-                    add_video_info=True,  # タイトルや再生数も取得できる
-                    language=["en", "ja"],  # 英語→日本語の優先順位で字幕を取得
-                )
-
-            if loader:
-                text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-                    model_name=stops.st.session_state.model_name,
-                    chunk_size=stops.st.session_state.max_token,
-                    chunk_overlap=50,
-                )
-                document = loader.load_and_split(text_splitter=text_splitter)
+                youtube_loader = langchain_client.youtube_loader(url)
+            if youtube_loader:
+                text_splitter = langchain_client.text_splitter()
+                document = youtube_loader.load_and_split(text_splitter=text_splitter)
 
                 with stops.st.spinner("Storing document ..."):
                     qs.build_vector_store(document)
 
                 with stops.st.spinner("ChatGPT is typing ..."):
-                    prompt_template = """
-Write a concise Japanese summary of the following transcript of Youtube Video.
-
-{text}
-
-ここから日本語で書いてね:
-"""
-                    PROMPT = PromptTemplate(
-                        template=prompt_template, input_variables=["text"]
-                    )
                     try:
-                        with get_openai_callback() as cb:
-                            chain = load_summarize_chain(
-                                llm,
-                                chain_type=CHAIN_TYPE,
-                                verbose=VERBOSE_MODE,
-                                map_prompt=PROMPT,
-                                combine_prompt=PROMPT,
-                            )
-                            response = chain(
-                                {
-                                    "input_documents": document,
-                                    # token_max を指示しないと、GPT3.5など通常の
-                                    # モデルサイズに合わせた内部処理になってしまう
-                                    "token_max": stops.st.session_state.max_token,
-                                },
-                                return_only_outputs=True,
-                            )
-                        stops.st.session_state.output_text = response["output_text"]
-                        stops.st.session_state.cost = cb.total_cost
-                        stops.st.session_state.token = cb.total_tokens
+                        (
+                            output_text,
+                            total_cost,
+                            total_tokens,
+                        ) = langchain_client.summarize_youtube_transcript(llm, document)
+
+                        stops.st.session_state.output_text = output_text
+                        stops.st.session_state.cost = total_cost
+                        stops.st.session_state.token = total_tokens
                     except Exception as e:
                         logger.info(f"An error occurred: {e}")
 
@@ -145,10 +112,9 @@ def main() -> None:
     qs = QdrantService()
 
     stops.init_page()
-    selection = stops.selection()
-    if selection == "YouTube Summarizer":
+    if stops.selection == "YouTube Summarizer":
         page_youtube_summarizer(stops, qs)
-    elif selection == "Ask My Content":
+    elif stops.selection == "Ask My Content":
         page_ask_my_content(stops, qs)
 
 

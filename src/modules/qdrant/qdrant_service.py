@@ -1,8 +1,6 @@
 import logging
 import os
 
-from langchain.chains import RetrievalQA
-from langchain.chains.retrieval_qa.base import BaseRetrievalQA
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Qdrant
 from qdrant_client import QdrantClient
@@ -20,10 +18,6 @@ LOCAL_QDRANT_PATH = "./local_qdrant"
 COLLECTION_NAME = "my_collection1"
 SIMILARITY_SEARCH_TYPE = "similarity"
 DEFAULT_K = 4
-
-CHAIN_TYPE = "map_reduce"
-RETURN_SOURCE_DOCUMENTS = True
-VERBOSE_MODE = True
 
 
 class QdrantService:
@@ -86,24 +80,16 @@ class QdrantService:
             logger.error("An error occurred while loading Qdrant: %s", e)
             raise
 
-    def build_qa_model(self, llm) -> BaseRetrievalQA:
+    def build_qa_retriever(self):
+        # TODO type hint retriever
         qdrant = self.load_qdrant()
 
         # Configure the retriever with predefined constants.
-        retriever = qdrant.as_retriever(
+        return qdrant.as_retriever(
             # Other choise: "mmr", "similarity_score_threshold"
             search_type=self.similarity_search_type,
             # How many times to retreave document (default: 4)
             search_kwargs={"k": self.default_k},
-        )
-
-        # Return a configured instance of RetrievalQA.
-        return RetrievalQA.from_chain_type(
-            llm=llm,
-            chain_type=CHAIN_TYPE,
-            retriever=retriever,
-            return_source_documents=RETURN_SOURCE_DOCUMENTS,
-            verbose=VERBOSE_MODE,
         )
 
     def build_vector_store(self, document) -> None:
