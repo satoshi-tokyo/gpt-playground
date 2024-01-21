@@ -101,7 +101,6 @@ def page_youtube_summarizer(stops: StreamlitOps, qs: QdrantService) -> None:
 
 
 def main() -> None:
-    # TODO optimize use of embedding instance, to resuse instance
     stops = StreamlitOps()
     qs = QdrantService()
 
