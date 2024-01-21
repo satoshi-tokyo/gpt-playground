@@ -65,8 +65,9 @@ def page_youtube_summarizer(stops: StreamlitOps, qs: QdrantService) -> None:
                 text_splitter = langchain_client.text_splitter()
                 document = youtube_loader.load_and_split(text_splitter=text_splitter)
 
-                with stops.st.spinner("Storing document ..."):
-                    qs.build_vector_store(document)
+                if document:
+                    with stops.st.spinner("Storing document ..."):
+                        qs.build_vector_store(document)
 
                 with stops.st.spinner("ChatGPT is typing ..."):
                     try:
