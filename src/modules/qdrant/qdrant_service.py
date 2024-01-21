@@ -19,6 +19,7 @@ LOCAL_QDRANT_PATH = "./local_qdrant"
 COLLECTION_NAME = "my_collection1"
 SIMILARITY_SEARCH_TYPE = "similarity"
 DEFAULT_K = 4
+EMBEDDINGS = OpenAIEmbeddings()
 
 
 class QdrantService:
@@ -75,7 +76,7 @@ class QdrantService:
             return Qdrant(
                 client=self.client,
                 collection_name=self.collection_name,
-                embeddings=OpenAIEmbeddings(),
+                embeddings=EMBEDDINGS,
             )
         except Exception as e:
             logger.error("An error occurred while loading Qdrant: %s", e)
@@ -93,9 +94,6 @@ class QdrantService:
         )
 
     def build_vector_store(self, document) -> None:
-        # Initialize embeddings using OpenAIEmbeddings which likely convert the document to vector form.
-        embeddings = OpenAIEmbeddings()
-
         # Handle local development case with SQLite backend
         if self.use_sqlite:
             if not self.local_qdrant_path:
@@ -104,7 +102,7 @@ class QdrantService:
             # Store documents in a QDRANT collection residing at the specified SQLite path.
             Qdrant.from_documents(
                 document,
-                embeddings,
+                EMBEDDINGS,
                 path=self.local_qdrant_path,
                 collection_name=self.collection_name,
                 force_recreate=True,  # Recreate the collection if it already exists.
@@ -118,7 +116,7 @@ class QdrantService:
             # Store documents in a QDRANT collection on the cloud endpoint using gRPC for improved performance.
             Qdrant.from_documents(
                 document,
-                embeddings,
+                EMBEDDINGS,
                 url=self.qdrant_cloud_endpoint,
                 prefer_grpc=True,  # Enable gRPC over HTTP for potentially faster data transfer.
                 collection_name=self.collection_name,
